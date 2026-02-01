@@ -13,7 +13,8 @@ import { SUPPORTED_LANGUAGES, COMMODITIES, TRANSLATIONS } from '@/lib/constants'
 
 export default function Home() {
   // State management
-  const [currentLanguage, setCurrentLanguage] = React.useState('hi');
+  const [isHydrated, setIsHydrated] = React.useState(false);
+  const [currentLanguage, setCurrentLanguage] = React.useState('en');
   const [activeView, setActiveView] = React.useState<'dashboard' | 'negotiation' | 'settings'>('dashboard');
   const [prices, setPrices] = React.useState<PriceData[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -21,44 +22,52 @@ export default function Home() {
   const [selectedCommodity, setSelectedCommodity] = React.useState<string>('');
   const [showLanguageMenu, setShowLanguageMenu] = React.useState(false);
   const [priceAlerts, setPriceAlerts] = React.useState<PriceAlert[]>([]);
-  const [theme, setTheme] = React.useState<'light' | 'dark' | 'auto'>('light');
+  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
   const [userLocation, setUserLocation] = React.useState('delhi');
   const [isOnline, setIsOnline] = React.useState(true);
   
   // Services
   const [priceService] = React.useState(() => new EnhancedPriceService());
 
-  // Initialize app
+  // Initialize app - set hydration flag
   React.useEffect(() => {
-    loadPrices();
-    requestNotificationPermission();
-    registerServiceWorker();
-    setupOnlineListener();
-    
-    // Load user preferences from localStorage
-    const savedPrefs = localStorage.getItem('mandi-preferences');
-    if (savedPrefs) {
-      const prefs: UserPreferences = JSON.parse(savedPrefs);
-      setCurrentLanguage(prefs.language);
-      setTheme(prefs.theme);
-      setUserLocation(prefs.location);
-      setPriceAlerts(prefs.priceAlerts);
-    }
+    setIsHydrated(true);
   }, []);
 
-  // Save preferences when they change
+  // Load user preferences from localStorage
   React.useEffect(() => {
-    const preferences: UserPreferences = {
-      language: currentLanguage,
-      theme,
-      voiceEnabled: true,
-      notifications: true,
-      location: userLocation,
-      favoritecommodities: [],
-      priceAlerts
-    };
-    localStorage.setItem('mandi-preferences', JSON.stringify(preferences));
-  }, [currentLanguage, theme, userLocation, priceAlerts]);
+    if (isHydrated) {
+      loadPrices();
+      requestNotificationPermission();
+      registerServiceWorker();
+      setupOnlineListener();
+      
+      const savedPrefs = localStorage.getItem('mandi-preferences');
+      if (savedPrefs) {
+        const prefs: UserPreferences = JSON.parse(savedPrefs);
+        setCurrentLanguage(prefs.language);
+        setTheme(prefs.theme);
+        setUserLocation(prefs.location);
+        setPriceAlerts(prefs.priceAlerts);
+      }
+    }
+  }, [isHydrated]);
+
+  // Save preferences when they change (only after hydration)
+  React.useEffect(() => {
+    if (isHydrated) {
+      const preferences: UserPreferences = {
+        language: currentLanguage,
+        theme,
+        voiceEnabled: true,
+        notifications: true,
+        location: userLocation,
+        favoritecommodities: [],
+        priceAlerts
+      };
+      localStorage.setItem('mandi-preferences', JSON.stringify(preferences));
+    }
+  }, [isHydrated, currentLanguage, theme, userLocation, priceAlerts]);
 
   const requestNotificationPermission = () => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -167,6 +176,18 @@ export default function Home() {
   const currentLang = SUPPORTED_LANGUAGES.find(lang => lang.code === currentLanguage) || SUPPORTED_LANGUAGES[0];
   const selectedPrice = prices.find(p => p.commodity === selectedCommodity);
 
+  // Apply theme to document
+  React.useEffect(() => {
+    if (!isHydrated) return;
+    
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [theme, isHydrated]);
+
   const getWelcomeMessage = () => {
     return TRANSLATIONS.welcome[currentLanguage as keyof typeof TRANSLATIONS.welcome] || 'Welcome to Mandi';
   };
@@ -174,24 +195,6 @@ export default function Home() {
   const getSubtitle = () => {
     return TRANSLATIONS.subtitle[currentLanguage as keyof typeof TRANSLATIONS.subtitle] || 'Get today\'s prices and trade better';
   };
-
-  // Apply theme to document
-  React.useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else if (theme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // Auto mode - use system preference
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (isDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
-  }, [theme]);
 
   return (
     <ErrorBoundary>
@@ -208,11 +211,11 @@ export default function Home() {
                 मंडी / Mandi
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {currentLanguage === 'hi' ? 'बहुभाषी बाज़ार' : 'Multilingual Market'}
+                {isHydrated && currentLanguage === 'hi' ? 'बहुभाषी बाज़ार' : 'Multilingual Market'}
               </p>
             </div>
             {loading && <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin ml-3"></div>}
-            {!isOnline && (
+            {isHydrated && !isOnline && (
               <div className="ml-3 px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 text-xs rounded-full flex items-center space-x-1">
                 <span>📡</span>
                 <span>
@@ -225,46 +228,49 @@ export default function Home() {
             )}
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-6">
             {/* Theme Toggle */}
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'auto' : 'light')}
-              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="Toggle theme"
-            >
-              <span className="text-xl">
-                {theme === 'light' ? '🌙' : theme === 'dark' ? '🌓' : '☀️'}
-              </span>
-            </button>
+            {isHydrated && (
+              <button
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Toggle theme"
+              >
+                <span className="text-xl">
+                  {theme === 'light' ? '🌙' : '☀️'}
+                </span>
+              </button>
+            )}
             
             {/* Language Selector */}
             <div className="relative">
               <button
                 onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                className="flex items-center space-x-2 px-4 py-2 border-2 border-green-600 text-green-700 dark:text-green-400 rounded-xl hover:bg-green-600 hover:text-white dark:hover:bg-green-700 transition-all duration-200 shadow-sm"
+                className="flex items-center gap-2 px-3 py-2 border-2 border-green-600 text-green-700 dark:text-green-400 rounded-xl hover:bg-green-600 hover:text-white dark:hover:bg-green-700 transition-all duration-200 shadow-sm min-w-fit"
               >
                 <span className="text-lg">{currentLang.flag}</span>
-                <span className="hidden sm:inline font-medium">{currentLang.nativeName}</span>
-                <span className="text-xs transform transition-transform duration-200 ${showLanguageMenu ? 'rotate-180' : ''}">▼</span>
+                <span className="hidden sm:inline font-medium text-sm">{currentLang.name}</span>
               </button>
               
               {showLanguageMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden">
                   {SUPPORTED_LANGUAGES.map((lang) => (
                     <button
                       key={lang.code}
                       onClick={() => handleLanguageChange(lang.code)}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2 ${
-                        currentLanguage === lang.code ? 'bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-400 border-r-4 border-green-500' : ''
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
+                        currentLanguage === lang.code ? 'bg-green-50 dark:bg-green-900/30' : ''
                       }`}
                     >
-                      <span className="text-lg">{lang.flag}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold truncate">{lang.nativeName}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{lang.name}</div>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-2xl flex-shrink-0">{lang.flag}</span>
+                        <div className="min-w-0">
+                          <div className={`font-semibold text-sm ${currentLanguage === lang.code ? 'text-green-700 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}`}>{lang.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{lang.nativeName}</div>
+                        </div>
                       </div>
                       {currentLanguage === lang.code && (
-                        <span className="text-green-500 flex-shrink-0">✓</span>
+                        <span className="text-green-500 text-lg flex-shrink-0 font-bold">✓</span>
                       )}
                     </button>
                   ))}
@@ -273,12 +279,12 @@ export default function Home() {
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+            <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
               <button
                 onClick={() => setActiveView('dashboard')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 whitespace-nowrap ${
                   activeView === 'dashboard' 
-                    ? 'bg-green-600 text-white shadow-sm' 
+                    ? 'bg-green-600 text-white shadow-md' 
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
@@ -287,9 +293,9 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveView('negotiation')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 whitespace-nowrap ${
                   activeView === 'negotiation' 
-                    ? 'bg-green-600 text-white shadow-sm' 
+                    ? 'bg-green-600 text-white shadow-md' 
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
@@ -298,9 +304,9 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveView('settings')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 whitespace-nowrap ${
                   activeView === 'settings' 
-                    ? 'bg-green-600 text-white shadow-sm' 
+                    ? 'bg-green-600 text-white shadow-md' 
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >

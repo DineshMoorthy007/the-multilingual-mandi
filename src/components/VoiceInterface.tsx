@@ -99,9 +99,9 @@ export function VoiceInterface({ language, onVoiceResult, onError }: VoiceInterf
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4 p-4">
+    <div className="flex flex-col items-center justify-center space-y-6 py-8">
       {/* Main Voice Button */}
-      <div className="relative">
+      <div className="relative flex flex-col items-center space-y-8">
         <button
           onClick={startListening}
           disabled={!isSupported || permissionStatus === 'denied'}
@@ -117,32 +117,32 @@ export function VoiceInterface({ language, onVoiceResult, onError }: VoiceInterf
             <div className="absolute inset-2 rounded-full bg-red-500 opacity-30 animate-ping animation-delay-200"></div>
           </>
         )}
+        
+        {/* Status Text - moved here for better alignment */}
+        <div className="text-center max-w-sm">
+          <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+            {getStatusText()}
+          </p>
+        </div>
       </div>
       
-      {/* Status Text */}
-      <div className="text-center max-w-sm">
-        <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-          {getStatusText()}
+      {/* Browser compatibility info */}
+      {!isSupported && (
+        <p className="text-sm text-red-600 mt-2">
+          {language === 'hi' 
+            ? 'कृपया Chrome, Edge, या Safari का उपयोग करें' 
+            : 'Please use Chrome, Edge, or Safari browser'}
         </p>
-        
-        {/* Browser compatibility info */}
-        {!isSupported && (
-          <p className="text-sm text-red-600 mt-2">
-            {language === 'hi' 
-              ? 'कृपया Chrome, Edge, या Safari का उपयोग करें' 
-              : 'Please use Chrome, Edge, or Safari browser'}
-          </p>
-        )}
-        
-        {/* Permission info */}
-        {permissionStatus === 'denied' && (
-          <p className="text-sm text-orange-600 mt-2">
-            {language === 'hi' 
-              ? 'ब्राउज़र सेटिंग्स में माइक्रोफोन की अनुमति दें' 
-              : 'Enable microphone access in browser settings'}
-          </p>
-        )}
-      </div>
+      )}
+      
+      {/* Permission info */}
+      {permissionStatus === 'denied' && (
+        <p className="text-sm text-orange-600 mt-2">
+          {language === 'hi' 
+            ? 'ब्राउज़र सेटिंग्स में माइक्रोफोन की अनुमति दें' 
+            : 'Enable microphone access in browser settings'}
+        </p>
+      )}
       
       {/* Transcript Display */}
       {transcript && (
@@ -158,13 +158,13 @@ export function VoiceInterface({ language, onVoiceResult, onError }: VoiceInterf
       )}
       
       {/* Voice Commands Help */}
-      <div className="w-full max-w-sm text-center">
+      <div className="w-full max-w-sm text-center mt-10">
         <details className="group">
-          <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
-            {language === 'hi' ? 'कमांड उदाहरण देखें ▼' :
-             language === 'ta' ? 'கட்டளை உதாரணங்களைப் பார்க்கவும் ▼' :
-             language === 'te' ? 'కమాండ్ ఉదాహరణలను చూడండి ▼' :
-             language === 'kn' ? 'ಆಜ್ಞೆ ಉದಾಹರಣೆಗಳನ್ನು ನೋಡಿ ▼' : 'View command examples ▼'}
+          <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors list-none [&::-webkit-details-marker]:hidden [&::marker]:content-['']">
+            {language === 'hi' ? 'कमांड उदाहरण देखें' :
+             language === 'ta' ? 'கட்டளை உதாரணங்களைப் பார்க்கவும்' :
+             language === 'te' ? 'కమాండ్ ఉదాహరణలను చూడండి' :
+             language === 'kn' ? 'ಆಜ್ಞೆ ಉದಾಹರಣೆಗಳನ್ನು ನೋಡಿ' : 'View command examples'}
           </summary>
           
           <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm space-y-2">

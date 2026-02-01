@@ -197,7 +197,10 @@ export class EnhancedVoiceService {
       };
       
       utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event.error);
+        // Only log non-interrupt errors
+        if (event.error !== 'interrupted') {
+          console.error('Speech synthesis error:', event.error);
+        }
         resolve(); // Don't reject, just complete silently
       };
 
